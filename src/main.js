@@ -1,5 +1,4 @@
 import { createClient } from "genlayer-js";
-import { createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 import "./styles.css";
 import "./layout.css";
