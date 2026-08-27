@@ -125,18 +125,27 @@ class DAOProposalContextVerifier(gl.Contract):
                 "Do not treat formatting-only changes as material. Title: " + title
                 + " locked hash: " + locked_hash + " current context: " + body
             )
-            return gl.nondet.exec_prompt(prompt)
+            raw_result = gl.nondet.exec_prompt(prompt).strip()
+            if raw_result.startswith("```"):
+                first_line_end = raw_result.find("\n")
+                if first_line_end >= 0:
+                    raw_result = raw_result[first_line_end + 1:]
+                if raw_result.endswith("```"):
+                    raw_result = raw_result[:-3].strip()
+            try:
+                parsed = json.loads(raw_result)
+                bounded = {
+                    "result": parsed["result"],
+                    "hash_matches": parsed["hash_matches"] == True,
+                    "material_change": parsed["material_change"] == True,
+                }
+                return json.dumps(bounded, sort_keys=True, separators=(",", ":"))
+            except Exception:
+                return "{\"result\":\"INVALID_CONTEXT_JSON\",\"hash_matches\":false,\"material_change\":true}"
 
         result_json = gl.eq_principle.strict_eq(run)
         try:
-            normalized_json = result_json.strip()
-            if normalized_json.startswith("```"):
-                first_line_end = normalized_json.find("\n")
-                if first_line_end >= 0:
-                    normalized_json = normalized_json[first_line_end + 1:]
-                if normalized_json.endswith("```"):
-                    normalized_json = normalized_json[:-3].strip()
-            data = json.loads(normalized_json)
+            data = json.loads(result_json)
             result = data["result"]
             if result != "UNCHANGED" and result != "MATERIAL_CHANGE" and result != "SOURCE_UNAVAILABLE":
                 return "INVALID_CONTEXT_RESULT"

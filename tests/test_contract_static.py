@@ -31,7 +31,8 @@ def test_storage_profile_and_flat_public_api():
 
 def test_context_consensus_and_fail_closed_enums():
     assert "gl.eq_principle.strict_eq(run)" in SOURCE
-    assert "normalized_json = result_json.strip()" in SOURCE
+    assert "bounded = {" in SOURCE
+    assert "json.dumps(bounded, sort_keys=True, separators=(\",\", \":\"))" in SOURCE
     assert "Do not use markdown fences" in SOURCE
     assert "UNCHANGED_VERIFIED" in SOURCE
     assert "MATERIAL_CHANGE_DETECTED" in SOURCE
