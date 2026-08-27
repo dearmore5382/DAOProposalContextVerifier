@@ -42,3 +42,4 @@ def test_architecture_is_not_grant_escrow_clone():
     assert "milestone" not in SOURCE.lower()
     assert "proposal_hashes" in SOURCE
     assert "proposal_quorums" in SOURCE
+    assert "global_vote_count" in SOURCE

@@ -7,6 +7,7 @@ import typing
 
 class DAOProposalContextVerifier(gl.Contract):
     proposal_count: u256
+    global_vote_count: u256
     proposals: TreeMap[u256, str]
     proposal_authors: TreeMap[u256, str]
     proposal_urls: TreeMap[u256, str]
@@ -26,6 +27,7 @@ class DAOProposalContextVerifier(gl.Contract):
 
     def __init__(self):
         self.proposal_count = u256(0)
+        self.global_vote_count = u256(0)
 
     def _address_text(self, value: str) -> str:
         text = str(value)
@@ -85,11 +87,12 @@ class DAOProposalContextVerifier(gl.Contract):
         if choice != "FOR" and choice != "AGAINST":
             return "INVALID_CHOICE"
         vote_id = self.proposal_vote_count[proposal_id]
-        global_vote_id = vote_id
+        global_vote_id = self.global_vote_count
         self.vote_proposal_ids[global_vote_id] = proposal_id
         self.vote_voters[global_vote_id] = self._sender()
         self.vote_choices[global_vote_id] = choice
         self.proposal_vote_count[proposal_id] = vote_id + u256(1)
+        self.global_vote_count = global_vote_id + u256(1)
         if choice == "FOR":
             self.proposal_for_votes[proposal_id] = self.proposal_for_votes[proposal_id] + u256(1)
         else:
