@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env.local
 .env.lifecycle
+.pinata.jwt
 __pycache__/
 artifacts/
 .pytest_cache/
