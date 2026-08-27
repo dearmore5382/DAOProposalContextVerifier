@@ -1,6 +1,7 @@
 import { createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 import "./styles.css";
+import "./layout.css";
 
 const address = import.meta.env.VITE_CONTRACT_ADDRESS;
 const rpcUrl = import.meta.env.VITE_RPC_URL;
