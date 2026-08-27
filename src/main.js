@@ -1,20 +1,12 @@
-import { ethers } from "ethers";
+import { createClient } from "genlayer-js";
+import { studionet } from "genlayer-js/chains";
 import "./styles.css";
 
 const address = import.meta.env.VITE_CONTRACT_ADDRESS;
 const rpcUrl = import.meta.env.VITE_RPC_URL;
-const abi = [
-  "function create_proposal(string,string,string,uint256,string) returns (uint256)",
-  "function vote(uint256,string) returns (string)",
-  "function verify_context(uint256) returns (string)",
-  "function execute(uint256,string) returns (string)",
-  "function proposal_state(uint256) view returns (string)",
-  "function proposal_context(uint256) view returns (string)"
-];
-
-let provider = rpcUrl ? new ethers.JsonRpcProvider(rpcUrl) : null;
-let signer = null;
-let contract = provider && address ? new ethers.Contract(address, abi, provider) : null;
+let readClient = rpcUrl ? createClient({ chain: studionet, endpoint: rpcUrl }) : null;
+let writeClient = null;
+let accountAddress = null;
 
 const app = document.querySelector("#app");
 app.innerHTML = `
@@ -29,18 +21,26 @@ app.innerHTML = `
     <footer><span>GenLayer Intelligent Contract</span><span>Semantic integrity gate · fail-closed by design</span></footer>
   </main>`;
 
+if (!address || !rpcUrl || address === "0x0000000000000000000000000000000000000000") {
+  document.querySelector("#network").textContent = "genlayer-js loaded - awaiting config";
+  document.querySelector("#contractState").textContent = "Set VITE_CONTRACT_ADDRESS + VITE_RPC_URL";
+  document.querySelector("#connect").disabled = true;
+}
+
 const $ = (s) => document.querySelector(s);
 function flash(message, kind = "info") { const el = document.createElement("div"); el.className = `toast ${kind}`; el.textContent = message; document.body.append(el); setTimeout(() => el.remove(), 4200); }
 async function connect() {
   if (!window.ethereum) return flash("Install a wallet extension first.", "error");
-  const browser = new ethers.BrowserProvider(window.ethereum); await browser.send("eth_requestAccounts", []); signer = await browser.getSigner(); contract = new ethers.Contract(address, abi, signer); $("#connect").textContent = `${(await signer.getAddress()).slice(0, 6)}…${(await signer.getAddress()).slice(-4)}`; $("#network").textContent = "Wallet connected"; $("#contractState").textContent = address;
+  const accounts = await window.ethereum.request({ method: "eth_requestAccounts" }); accountAddress = accounts[0];
+  writeClient = createClient({ chain: studionet, endpoint: rpcUrl, account: accountAddress, provider: window.ethereum });
+  $("#connect").textContent = `${accountAddress.slice(0, 6)}…${accountAddress.slice(-4)}`; $("#network").textContent = "Wallet connected via genlayer-js"; $("#contractState").textContent = address;
 }
 $("#connect").onclick = connect;
-$("#createForm").onsubmit = async (e) => { e.preventDefault(); if (!signer) return flash("Connect wallet first.", "error"); const f = new FormData(e.target); const date = new Date(f.get("deadline")).toISOString().replace(".000", ""); try { const tx = await contract.create_proposal(f.get("title"), f.get("url"), f.get("hash"), f.get("quorum"), date); flash(`Proposal transaction sent: ${tx.hash.slice(0, 12)}…`); await tx.wait(); flash("Proposal locked on-chain.", "success"); } catch (err) { flash(err.shortMessage || err.message, "error"); } };
-async function loadProposal() { if (!contract) return flash("Configure the contract address first.", "error"); const id = $("#proposalId").value; if (id === "") return; try { const [state, context] = await Promise.all([contract.proposal_state(id), contract.proposal_context(id)]); const [status, result, yes, no] = state.split("|"); const [url, hash, note] = context.split("|"); $("#details").className = "details"; $("#details").innerHTML = `<div class="badges"><span class="badge ${status.toLowerCase()}">${status}</span><span class="badge ${result.toLowerCase()}">${result}</span></div><dl><dt>Context source</dt><dd>${url}</dd><dt>Locked hash</dt><dd>${hash}</dd><dt>Votes</dt><dd>${yes} FOR · ${no} AGAINST</dd><dt>Validator note</dt><dd>${note || "—"}</dd></dl>`; $("#verify").disabled = false; $("#execute").disabled = false; } catch (err) { flash(err.shortMessage || err.message, "error"); } }
+$("#createForm").onsubmit = async (e) => { e.preventDefault(); if (!writeClient) return flash("Connect wallet first.", "error"); const f = new FormData(e.target); const date = new Date(f.get("deadline")).toISOString().replace(".000", ""); try { const txHash = await writeClient.writeContract({ address, functionName: "create_proposal", args: [f.get("title"), f.get("url"), f.get("hash"), BigInt(f.get("quorum")), date] }); flash(`Proposal transaction sent: ${txHash.slice(0, 12)}…`); await readClient.waitForTransactionReceipt({ hash: txHash, status: "FINALIZED" }); flash("Proposal locked on-chain.", "success"); } catch (err) { flash(err.shortMessage || err.message, "error"); } };
+async function loadProposal() { if (!readClient) return flash("Configure the contract address first.", "error"); const id = $("#proposalId").value; if (id === "") return; try { const [state, context] = await Promise.all([readClient.readContract({ address, functionName: "proposal_state", args: [BigInt(id)] }), readClient.readContract({ address, functionName: "proposal_context", args: [BigInt(id)] })]); const [status, result, yes, no] = state.split("|"); const [url, hash, note] = context.split("|"); $("#details").className = "details"; $("#details").innerHTML = `<div class="badges"><span class="badge ${status.toLowerCase()}">${status}</span><span class="badge ${result.toLowerCase()}">${result}</span></div><dl><dt>Context source</dt><dd>${url}</dd><dt>Locked hash</dt><dd>${hash}</dd><dt>Votes</dt><dd>${yes} FOR · ${no} AGAINST</dd><dt>Validator note</dt><dd>${note || "—"}</dd></dl>`; $("#verify").disabled = false; $("#execute").disabled = false; } catch (err) { flash(err.shortMessage || err.message, "error"); } }
 $("#load").onclick = loadProposal;
-async function writeAction(method, ...args) { if (!signer) return flash("Connect wallet first.", "error"); try { const tx = await contract[method](...args); flash(`Transaction sent: ${tx.hash.slice(0, 12)}…`); await tx.wait(); flash(`${method} confirmed.`, "success"); await loadProposal(); } catch (err) { flash(err.shortMessage || err.message, "error"); } }
-$("#verify").onclick = () => writeAction("verify_context", $("#proposalId").value);
-$("#execute").onclick = () => writeAction("execute", $("#proposalId").value, `receipt-${Date.now()}`);
-$("#for").onclick = () => writeAction("vote", $("#proposalId").value, "FOR");
-$("#against").onclick = () => writeAction("vote", $("#proposalId").value, "AGAINST");
+async function writeAction(method, args) { if (!writeClient) return flash("Connect wallet first.", "error"); try { const txHash = await writeClient.writeContract({ address, functionName: method, args }); flash(`Transaction sent: ${txHash.slice(0, 12)}…`); await readClient.waitForTransactionReceipt({ hash: txHash, status: "FINALIZED" }); flash(`${method} confirmed.`, "success"); await loadProposal(); } catch (err) { flash(err.shortMessage || err.message, "error"); } }
+$("#verify").onclick = () => writeAction("verify_context", [BigInt($("#proposalId").value)]);
+$("#execute").onclick = () => writeAction("execute", [BigInt($("#proposalId").value), `receipt-${Date.now()}`]);
+$("#for").onclick = () => writeAction("vote", [BigInt($("#proposalId").value), "FOR"]);
+$("#against").onclick = () => writeAction("vote", [BigInt($("#proposalId").value), "AGAINST"]);

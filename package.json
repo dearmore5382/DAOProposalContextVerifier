@@ -3,6 +3,6 @@
   "private": true,
   "type": "module",
   "scripts": { "dev": "vite", "build": "vite build", "preview": "vite preview" },
-  "dependencies": { "ethers": "^6.13.0", "vite": "^5.4.10" },
+  "dependencies": { "genlayer-js": "^1.1.8", "vite": "^5.4.10" },
   "devDependencies": {}
 }
