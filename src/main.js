@@ -25,6 +25,9 @@ app.innerHTML = `
 if (!address || !rpcUrl || address === "0x0000000000000000000000000000000000000000") {
   document.querySelector("#network").textContent = "genlayer-js loaded - awaiting config";
   document.querySelector("#contractState").textContent = "Set VITE_CONTRACT_ADDRESS + VITE_RPC_URL";
+} else {
+  document.querySelector("#network").textContent = "genlayer-js ready - wallet not connected";
+  document.querySelector("#contractState").textContent = address;
 }
 
 const $ = (s) => document.querySelector(s);
