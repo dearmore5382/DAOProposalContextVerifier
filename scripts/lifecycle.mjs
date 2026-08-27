@@ -50,7 +50,7 @@ async function findNextProposalId(limit = 100) {
 async function transact(client, label, functionName, args) {
   const hash = await client.writeContract({ address: contractAddress, functionName, args, value: 0n });
   console.log(`${label} tx: ${hash}`);
-  const receipt = await reader.waitForTransactionReceipt({ hash, status: TransactionStatus.FINALIZED, fullTransaction: true });
+  const receipt = await reader.waitForTransactionReceipt({ hash, status: TransactionStatus.FINALIZED, retries: 120, interval: 3000, fullTransaction: true });
   const result = receipt.txExecutionResultName;
   console.log(`${label} consensus: ${receipt.statusName || receipt.status || "FINALIZED"}`);
   console.log(`${label} execution: ${result || "UNKNOWN"}`);
