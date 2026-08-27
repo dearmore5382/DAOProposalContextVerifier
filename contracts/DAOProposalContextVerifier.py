@@ -138,7 +138,6 @@ class DAOProposalContextVerifier(gl.Contract):
                     normalized_json = normalized_json[:-3].strip()
             data = json.loads(normalized_json)
             result = data["result"]
-            note = data["note"]
             if result != "UNCHANGED" and result != "MATERIAL_CHANGE" and result != "SOURCE_UNAVAILABLE":
                 return "INVALID_CONTEXT_RESULT"
             if result == "UNCHANGED" and data["hash_matches"] != True:
@@ -146,7 +145,12 @@ class DAOProposalContextVerifier(gl.Contract):
         except Exception:
             return "INVALID_CONTEXT_JSON"
         self.proposal_context_results[proposal_id] = result
-        self.proposal_verification_notes[proposal_id] = str(note)[:240]
+        if result == "UNCHANGED":
+            self.proposal_verification_notes[proposal_id] = "UNCHANGED_VERIFIED"
+        elif result == "MATERIAL_CHANGE":
+            self.proposal_verification_notes[proposal_id] = "MATERIAL_CHANGE_DETECTED"
+        else:
+            self.proposal_verification_notes[proposal_id] = "SOURCE_UNAVAILABLE"
         self.proposal_statuses[proposal_id] = "READY" if result == "UNCHANGED" else "BLOCKED"
         return result
 

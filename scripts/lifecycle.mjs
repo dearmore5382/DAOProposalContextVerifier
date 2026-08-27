@@ -22,6 +22,7 @@ const rpcUrl = process.env.RPC_URL || "https://studio.genlayer.com/api";
 const keyA = process.env.WALLET_A_PRIVATE_KEY;
 const keyB = process.env.WALLET_B_PRIVATE_KEY;
 const contextUrl = process.env.CONTEXT_URL || "https://example.com/";
+const contextTitle = process.env.CONTEXT_TITLE || `Lifecycle evidence proposal ${Date.now()}`;
 
 if (!/^0x[0-9a-fA-F]{40}$/.test(contractAddress || "")) throw new Error("CONTRACT_ADDRESS is missing or invalid");
 if (!/^(0x)?[0-9a-fA-F]{64}$/.test(keyA || "") || !/^(0x)?[0-9a-fA-F]{64}$/.test(keyB || "")) {
@@ -64,7 +65,7 @@ const contextHash = createHash("sha256").update(contextBody).digest("hex");
 const deadline = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 19) + "Z";
 
 await transact(writerA, "create", "create_proposal", [
-  `Lifecycle evidence proposal ${Date.now()}`,
+  contextTitle,
   contextUrl,
   contextHash,
   2n,
