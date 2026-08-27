@@ -117,8 +117,11 @@ class DAOProposalContextVerifier(gl.Contract):
                 body = "[SOURCE_UNAVAILABLE]"
             prompt = (
                 "Compare the current DAO proposal context against its locked snapshot. "
-                "Return ONLY JSON with keys result, hash_matches, material_change, note. "
+                "Return ONLY one JSON object with exactly these keys: result, hash_matches, material_change, note. "
                 "result must be UNCHANGED, MATERIAL_CHANGE, or SOURCE_UNAVAILABLE. "
+                "hash_matches and material_change must be JSON booleans. note must be a short string. "
+                "Do not use markdown fences, code blocks, or extra text. "
+                "Example: {\"result\":\"UNCHANGED\",\"hash_matches\":true,\"material_change\":false,\"note\":\"No material change\"}. "
                 "Do not treat formatting-only changes as material. Title: " + title
                 + " locked hash: " + locked_hash + " current context: " + body
             )
@@ -126,7 +129,14 @@ class DAOProposalContextVerifier(gl.Contract):
 
         result_json = gl.eq_principle.strict_eq(run)
         try:
-            data = json.loads(result_json)
+            normalized_json = result_json.strip()
+            if normalized_json.startswith("```"):
+                first_line_end = normalized_json.find("\n")
+                if first_line_end >= 0:
+                    normalized_json = normalized_json[first_line_end + 1:]
+                if normalized_json.endswith("```"):
+                    normalized_json = normalized_json[:-3].strip()
+            data = json.loads(normalized_json)
             result = data["result"]
             note = data["note"]
             if result != "UNCHANGED" and result != "MATERIAL_CHANGE" and result != "SOURCE_UNAVAILABLE":
