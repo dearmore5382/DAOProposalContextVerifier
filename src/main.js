@@ -22,12 +22,22 @@ app.innerHTML = `
     <footer><span>GenLayer Intelligent Contract</span><span>Semantic integrity gate · fail-closed by design</span></footer>
   </main>`;
 
+const contractExplorer = document.createElement("a");
+contractExplorer.className = "status-link";
+contractExplorer.target = "_blank";
+contractExplorer.rel = "noopener noreferrer";
+contractExplorer.hidden = true;
+contractExplorer.innerHTML = "View on GenLayer Explorer <span>↗</span>";
+document.querySelector(".status-card").append(contractExplorer);
+
 if (!address || !rpcUrl || address === "0x0000000000000000000000000000000000000000") {
   document.querySelector("#network").textContent = "genlayer-js loaded - awaiting config";
   document.querySelector("#contractState").textContent = "Set VITE_CONTRACT_ADDRESS + VITE_RPC_URL";
 } else {
   document.querySelector("#network").textContent = "genlayer-js ready - wallet not connected";
   document.querySelector("#contractState").textContent = address;
+  contractExplorer.href = `https://explorer-studio.genlayer.com/address/${address}`;
+  contractExplorer.hidden = false;
 }
 
 const $ = (s) => document.querySelector(s);
