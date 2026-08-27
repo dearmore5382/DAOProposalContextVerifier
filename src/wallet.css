@@ -1,0 +1,2 @@
+.brand { color: inherit; text-decoration: none; }
+.brand:hover .mark { box-shadow: 0 0 18px rgba(99, 230, 181, .35); }
