@@ -20,6 +20,7 @@ class DAOProposalContextVerifier(gl.Contract):
     proposal_context_results: TreeMap[u256, str]
     proposal_verification_notes: TreeMap[u256, str]
     proposal_execution_receipts: TreeMap[u256, str]
+    proposal_snapshot_bodies: TreeMap[u256, str]
     proposal_vote_count: TreeMap[u256, u256]
     vote_proposal_ids: TreeMap[u256, u256]
     vote_voters: TreeMap[u256, str]
@@ -102,9 +103,32 @@ class DAOProposalContextVerifier(gl.Contract):
         self.proposal_context_results[proposal_id] = "UNVERIFIED"
         self.proposal_verification_notes[proposal_id] = ""
         self.proposal_execution_receipts[proposal_id] = ""
+        self.proposal_snapshot_bodies[proposal_id] = ""
         self.proposal_vote_count[proposal_id] = u256(0)
         self.proposal_count = proposal_id + u256(1)
         return proposal_id
+
+    @gl.public.write
+    def capture_snapshot(self, proposal_id: u256) -> typing.Any:
+        if proposal_id >= self.proposal_count:
+            return "PROPOSAL_NOT_FOUND"
+        if self.proposal_authors[proposal_id] != self._sender():
+            return "CREATOR_ONLY"
+        if self.proposal_statuses[proposal_id] != "VOTING":
+            return "SNAPSHOT_ALREADY_CAPTURED"
+        context_url = self.proposal_urls[proposal_id]
+
+        def fetch() -> str:
+            try:
+                return gl.nondet.web.get(context_url).body.decode("utf-8")[:5000]
+            except Exception:
+                return "[SOURCE_UNAVAILABLE]"
+
+        body = gl.eq_principle.strict_eq(fetch)
+        if body == "[SOURCE_UNAVAILABLE]" or len(body) == 0:
+            return "SOURCE_UNAVAILABLE"
+        self.proposal_snapshot_bodies[proposal_id] = body
+        return "SNAPSHOT_CAPTURED"
 
     @gl.public.write
     def vote(self, proposal_id: u256, choice: str) -> typing.Any:
@@ -147,6 +171,9 @@ class DAOProposalContextVerifier(gl.Contract):
         context_url = self.proposal_urls[proposal_id]
         locked_hash = self.proposal_hashes[proposal_id]
         title = self.proposals[proposal_id]
+        locked_snapshot = self.proposal_snapshot_bodies[proposal_id]
+        if len(locked_snapshot) == 0:
+            return "SNAPSHOT_NOT_CAPTURED"
 
         def run() -> str:
             body = ""
@@ -185,6 +212,14 @@ class DAOProposalContextVerifier(gl.Contract):
         result_json = gl.eq_principle.strict_eq(run)
         try:
             data = json.loads(result_json)
+            def fetch_current() -> str:
+                try:
+                    return gl.nondet.web.get(context_url).body.decode("utf-8")[:5000]
+                except Exception:
+                    return "[SOURCE_UNAVAILABLE]"
+            current_body = gl.eq_principle.strict_eq(fetch_current)
+            deterministic_hash_match = current_body != "[SOURCE_UNAVAILABLE]" and current_body == locked_snapshot
+            data["hash_matches"] = deterministic_hash_match
             result = data["result"]
             if result != "UNCHANGED" and result != "MATERIAL_CHANGE" and result != "SOURCE_UNAVAILABLE":
                 return "INVALID_CONTEXT_RESULT"

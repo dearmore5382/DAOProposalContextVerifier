@@ -72,6 +72,7 @@ await transact(writerA, "create", "create_proposal", [
   deadline,
 ]);
 console.log(`create readback: ${await state(beforeId)}`);
+await transact(writerA, "capture-snapshot", "capture_snapshot", [BigInt(beforeId)]);
 
 await transact(writerA, "vote-A", "vote", [BigInt(beforeId), "FOR"]);
 await transact(writerA, "duplicate-vote-A", "vote", [BigInt(beforeId), "FOR"]);
