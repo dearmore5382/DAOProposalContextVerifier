@@ -46,8 +46,29 @@ class DAOProposalContextVerifier(gl.Contract):
         return "OK"
 
     def _hash(self, value: str) -> str:
-        if len(value) < 32 or len(value) > 128 or " " in value:
+        if not value.startswith("sha256:") or len(value) != 71:
             return "INVALID_HASH"
+        for char in value[7:].lower():
+            if char not in "0123456789abcdef":
+                return "INVALID_HASH"
+        return "OK"
+
+    def _valid_deadline(self, value: str) -> str:
+        if len(value) != 20 or not value.endswith("Z"):
+            return "INVALID_DEADLINE"
+        if value[4] != "-" or value[7] != "-" or value[10] != "T" or value[13] != ":" or value[16] != ":":
+            return "INVALID_DEADLINE"
+        digits = value[:4] + value[5:7] + value[8:10] + value[11:13] + value[14:16] + value[17:19]
+        for char in digits:
+            if char not in "0123456789":
+                return "INVALID_DEADLINE"
+        month = u256(int(value[5:7]))
+        day = u256(int(value[8:10]))
+        hour = u256(int(value[11:13]))
+        minute = u256(int(value[14:16]))
+        second = u256(int(value[17:19]))
+        if month == u256(0) or month > u256(12) or day == u256(0) or day > u256(31) or hour > u256(23) or minute > u256(59) or second > u256(59):
+            return "INVALID_DEADLINE"
         return "OK"
 
     def _now(self) -> str:
@@ -66,7 +87,7 @@ class DAOProposalContextVerifier(gl.Contract):
             return "INVALID_CONTEXT_HASH"
         if quorum == u256(0):
             return "ZERO_QUORUM"
-        if len(deadline) != 20 or not deadline.endswith("Z"):
+        if self._valid_deadline(deadline) != "OK":
             return "INVALID_DEADLINE"
         proposal_id = self.proposal_count
         self.proposals[proposal_id] = title
@@ -118,7 +139,7 @@ class DAOProposalContextVerifier(gl.Contract):
     def verify_context(self, proposal_id: u256) -> typing.Any:
         if proposal_id >= self.proposal_count:
             return "PROPOSAL_NOT_FOUND"
-        if self.proposal_statuses[proposal_id] != "VOTING":
+        if self.proposal_statuses[proposal_id] != "VOTING" and self.proposal_statuses[proposal_id] != "RETRYABLE":
             return "VERIFICATION_NOT_ALLOWED"
         now = self._now()
         if len(now) > 0 and now >= self.proposal_deadlines[proposal_id]:
@@ -178,7 +199,7 @@ class DAOProposalContextVerifier(gl.Contract):
             self.proposal_verification_notes[proposal_id] = "MATERIAL_CHANGE_DETECTED"
         else:
             self.proposal_verification_notes[proposal_id] = "SOURCE_UNAVAILABLE"
-        self.proposal_statuses[proposal_id] = "READY" if result == "UNCHANGED" else "BLOCKED"
+        self.proposal_statuses[proposal_id] = "READY" if result == "UNCHANGED" else ("RETRYABLE" if result == "SOURCE_UNAVAILABLE" else "BLOCKED")
         return result
 
     @gl.public.write
