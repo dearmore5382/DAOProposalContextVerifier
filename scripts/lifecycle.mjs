@@ -61,7 +61,7 @@ async function transact(client, label, functionName, args) {
 
 const beforeId = await findNextProposalId();
 const contextBody = await (await fetch(contextUrl)).text();
-const contextHash = createHash("sha256").update(contextBody).digest("hex");
+const contextHash = `sha256:${createHash("sha256").update(contextBody).digest("hex")}`;
 const deadline = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 19) + "Z";
 
 await transact(writerA, "create", "create_proposal", [
