@@ -74,6 +74,9 @@ await transact(writerA, "create", "create_proposal", [
 console.log(`create readback: ${await state(beforeId)}`);
 
 await transact(writerA, "vote-A", "vote", [BigInt(beforeId), "FOR"]);
+await transact(writerA, "duplicate-vote-A", "vote", [BigInt(beforeId), "FOR"]);
+const afterDuplicate = await state(beforeId);
+if (!afterDuplicate.endsWith("|1|0")) throw new Error(`duplicate vote mutated tally: ${afterDuplicate}`);
 await transact(writerB, "vote-B", "vote", [BigInt(beforeId), "FOR"]);
 console.log(`vote readback: ${await state(beforeId)}`);
 
@@ -89,3 +92,15 @@ if (verified.startsWith("READY|UNCHANGED|")) {
 }
 
 console.log(`Proposal ID: ${beforeId}`);
+
+const expiredId = await findNextProposalId();
+await transact(writerA, "create-expired", "create_proposal", [
+  `${contextTitle} expired`, contextUrl, contextHash, 1n, "2000-01-01T00:00:00Z",
+]);
+await transact(writerB, "vote-after-deadline", "vote", [BigInt(expiredId), "FOR"]);
+const expiredVoteState = await state(expiredId);
+if (!expiredVoteState.endsWith("|0|0")) throw new Error(`deadline vote mutated tally: ${expiredVoteState}`);
+await transact(writerA, "verify-after-deadline", "verify_context", [BigInt(expiredId)]);
+const expiredVerifyState = await state(expiredId);
+if (expiredVerifyState !== "VOTING|UNVERIFIED|0|0") throw new Error(`deadline verification mutated state: ${expiredVerifyState}`);
+console.log(`Expired proposal negative paths PASS: ${expiredId}`);
