@@ -15,9 +15,9 @@ The contract is an authorization gate. It does not custody USDC/GEN or transfer 
 
 - Frontend: https://dao-proposal-context-verifier.pages.dev
 - Cloudflare deployment: https://2b0a5394.dao-proposal-context-verifier.pages.dev
-- Contract: `0x84c8D2985c03A071385A933dee9f4dD7833e1ae1`
+- Contract: `0x6b3FaC51490D9147f599B8e7F2d7536981A3792c`
 - Network: GenLayer Studionet (`https://studio.genlayer.com/api`)
-- Explorer: https://explorer-studio.genlayer.com/address/0x84c8D2985c03A071385A933dee9f4dD7833e1ae1
+- Explorer: https://explorer-studio.genlayer.com/address/0x6b3FaC51490D9147f599B8e7F2d7536981A3792c
 
 ## Repository layout
 
@@ -42,7 +42,7 @@ Copy-Item .env.example .env.local
 Set `.env.local` (never commit it):
 
 ```dotenv
-VITE_CONTRACT_ADDRESS=0x84c8D2985c03A071385A933dee9f4dD7833e1ae1
+VITE_CONTRACT_ADDRESS=0x6b3FaC51490D9147f599B8e7F2d7536981A3792c
 VITE_RPC_URL=https://studio.genlayer.com/api
 VITE_CHAIN_ID=61999
 ```
