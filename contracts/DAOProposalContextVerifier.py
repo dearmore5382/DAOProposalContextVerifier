@@ -24,6 +24,7 @@ class DAOProposalContextVerifier(gl.Contract):
     vote_proposal_ids: TreeMap[u256, u256]
     vote_voters: TreeMap[u256, str]
     vote_choices: TreeMap[u256, str]
+    vote_keys: TreeMap[u256, str]
 
     def __init__(self):
         self.proposal_count = u256(0)
@@ -48,6 +49,12 @@ class DAOProposalContextVerifier(gl.Contract):
         if len(value) < 32 or len(value) > 128 or " " in value:
             return "INVALID_HASH"
         return "OK"
+
+    def _now(self) -> str:
+        try:
+            return str(gl.message_raw["datetime"])
+        except Exception:
+            return ""
 
     @gl.public.write
     def create_proposal(self, title: str, context_url: str, context_hash: str, quorum: u256, deadline: str) -> typing.Any:
@@ -84,13 +91,21 @@ class DAOProposalContextVerifier(gl.Contract):
             return "PROPOSAL_NOT_FOUND"
         if self.proposal_statuses[proposal_id] != "VOTING":
             return "VOTING_CLOSED"
+        now = self._now()
+        if len(now) > 0 and now >= self.proposal_deadlines[proposal_id]:
+            return "DEADLINE_PASSED"
         if choice != "FOR" and choice != "AGAINST":
             return "INVALID_CHOICE"
+        voter_key = str(proposal_id) + "|" + self._sender()
+        for existing_id in range(self.global_vote_count):
+            if self.vote_keys[u256(existing_id)] == voter_key:
+                return "ALREADY_VOTED"
         vote_id = self.proposal_vote_count[proposal_id]
         global_vote_id = self.global_vote_count
         self.vote_proposal_ids[global_vote_id] = proposal_id
         self.vote_voters[global_vote_id] = self._sender()
         self.vote_choices[global_vote_id] = choice
+        self.vote_keys[global_vote_id] = voter_key
         self.proposal_vote_count[proposal_id] = vote_id + u256(1)
         self.global_vote_count = global_vote_id + u256(1)
         if choice == "FOR":
@@ -105,6 +120,9 @@ class DAOProposalContextVerifier(gl.Contract):
             return "PROPOSAL_NOT_FOUND"
         if self.proposal_statuses[proposal_id] != "VOTING":
             return "VERIFICATION_NOT_ALLOWED"
+        now = self._now()
+        if len(now) > 0 and now >= self.proposal_deadlines[proposal_id]:
+            return "DEADLINE_PASSED"
         context_url = self.proposal_urls[proposal_id]
         locked_hash = self.proposal_hashes[proposal_id]
         title = self.proposals[proposal_id]
@@ -191,3 +209,9 @@ class DAOProposalContextVerifier(gl.Contract):
         if proposal_id >= self.proposal_count:
             return "NOT_FOUND"
         return self.proposal_urls[proposal_id] + "|" + self.proposal_hashes[proposal_id] + "|" + self.proposal_verification_notes[proposal_id]
+
+    @gl.public.view
+    def proposal_receipt(self, proposal_id: u256) -> str:
+        if proposal_id >= self.proposal_count:
+            return "NOT_FOUND"
+        return self.proposal_statuses[proposal_id] + "|" + self.proposal_context_results[proposal_id] + "|" + self.proposal_verification_notes[proposal_id] + "|" + self.proposal_execution_receipts[proposal_id]
